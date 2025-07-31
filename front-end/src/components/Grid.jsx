@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import io from 'socket.io-client';
-import styled from 'styled-components';
-import Timer from './Timer';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import styles from './grid.module.css';
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import io from "socket.io-client";
+import styled from "styled-components";
+import Timer from "./Timer";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import styles from "./grid.module.css";
 
-const socket = io('http://10.10.134.41:8000', {
+const socket = io("http://localhost:8000", {
   withCredentials: true,
   reconnection: true,
   reconnectionAttempts: 5,
@@ -23,12 +23,13 @@ const shuffleArray = (array) => {
 };
 
 const scoreReader = (array, ind) => {
-  let x = 0, y = 0;
+  let x = 0,
+    y = 0;
   for (let i = 0; i < array.length; i++) {
-    if (array[i] === 'P') x++;
-    else if (array[i] === 'C') y++;
+    if (array[i] === "P") x++;
+    else if (array[i] === "C") y++;
   }
-  return ind === 'P' ? x : y;
+  return ind === "P" ? x : y;
 };
 
 const Grid = ({ handleLogout }) => {
@@ -52,41 +53,61 @@ const Grid = ({ handleLogout }) => {
   const [gameStarted, setGameStarted] = useState(false);
   const [players, setPlayers] = useState([]);
   const [currentTurn, setCurrentTurn] = useState(null);
-  const user = JSON.parse(localStorage.getItem('quizgrid-user'));
 
-  const api = 'https://the-trivia-api.com/v2/questions';
+  const user = JSON.parse(localStorage.getItem("quizgrid-user"));
+
+  const api = "https://the-trivia-api.com/v2/questions";
 
   useEffect(() => {
     if (!user || !user._id) {
-      console.error('No user or userId found in localStorage');
-      navigate('/login');
+      console.error("No user or userId found in localStorage");
+      navigate("/login");
       return;
     }
 
     if (!gameStarted && !quizFinished) {
-      socket.emit('joinRoom', { roomId, userId: user._id, username: user.username });
+      socket.emit("joinRoom", {
+        roomId,
+        userId: user._id,
+        username: user.username,
+      });
     }
 
-    socket.on('gameStarted', ({ players: initialPlayers, currentTurn: initialTurn, cellOwnership: initialOwnership }) => {
-      setLoading(false);
-      setGameStarted(true);
-      setPlayers(initialPlayers);
-      setCurrentTurn(initialTurn);
-      setCellOwnership(initialOwnership);
-      toast.success('Game started with both players!', { autoClose: 3000 });
-    });
+    socket.on(
+      "gameStarted",
+      ({
+        players: initialPlayers,
+        currentTurn: initialTurn,
+        cellOwnership: initialOwnership,
+      }) => {
+        setLoading(false);
+        setGameStarted(true);
+        setPlayers(initialPlayers);
+        setCurrentTurn(initialTurn);
+        setCellOwnership(initialOwnership);
+        toast.success("Game started with both players!", { autoClose: 500 });
+      }
+    );
 
-    socket.on('updatePlayers', ({ players: updatedPlayers, currentTurn: updatedTurn, cellOwnership: updatedOwnership }) => {
-      setPlayers(updatedPlayers);
-      setCurrentTurn(updatedTurn);
-      setCellOwnership(updatedOwnership);
-      setPlayerScore(scoreReader(updatedOwnership, 'P'));
-      setComputerScore(scoreReader(updatedOwnership, 'C'));
-    });
+    socket.on(
+      "updatePlayers",
+      ({
+        players: updatedPlayers,
+        currentTurn: updatedTurn,
+        cellOwnership: updatedOwnership,
+      }) => {
+        setPlayers(updatedPlayers);
+        setCurrentTurn(updatedTurn);
+        setCellOwnership(updatedOwnership);
+        setPlayerScore(scoreReader(updatedOwnership, "P"));
+        setComputerScore(scoreReader(updatedOwnership, "C"));
+      }
+    );
 
-    socket.on('updateTurn', ({ currentTurn: updatedTurn }) => {
+    socket.on("updateTurn", ({ currentTurn: updatedTurn }) => {
+      console.log("Received updateTurn:", updatedTurn);
       setCurrentTurn(updatedTurn);
-      setQuizData(null); // Clear question when turn ends
+      setQuizData(null);
       setSelectedAnswer(null);
       setIsAnswerCorrect(null);
       setIsAnswered(false);
@@ -94,80 +115,108 @@ const Grid = ({ handleLogout }) => {
       setTimerStart(null);
     });
 
-    socket.on('cellClick', ({ index, currentTurn: turn }) => {
-      if (turn !== user._id) {
-        setCurrentCell(index); // Show the selected cell for the other player
-        handleApiClick(); // Fetch question for visibility
-      }
+    socket.on("cellClick", ({ index, currentTurn: turn }) => {
+      setCurrentCell(index);
     });
 
-    socket.on('updateOwnership', ({ cellIndex, owner }) => {
+    socket.on("updateOwnership", ({ cellIndex, owner }) => {
       const updated = [...cellOwnership];
       updated[cellIndex] = owner;
       setCellOwnership(updated);
-      setPlayerScore(scoreReader(updated, 'P'));
-      setComputerScore(scoreReader(updated, 'C'));
+      setPlayerScore(scoreReader(updated, "P"));
+      setComputerScore(scoreReader(updated, "C"));
     });
 
-    socket.on('questionFetched', ({ question, options, currentTurn: turn, correctAnswer }) => {
-      if (turn !== user._id) {
-        setQuizData({ question: { text: question }, shuffledAnswers: options, correctAnswer }); // Show question but disable answering
-      } else if (turn === user._id) {
-        setQuizData({ question: { text: question }, shuffledAnswers: options, correctAnswer });
+    socket.on(
+      "questionFetched",
+      ({ question, options, currentTurn: turn, correctAnswer, timerStart }) => {
+        setQuizData({
+          question: { text: question },
+          shuffledAnswers: options,
+          correctAnswer,
+        });
+        setTimerStart(timerStart);
         setTimerActive(true);
+        setTimerKey((prevKey) => prevKey + 1);
+        setIsAnswered(false);
+        setSelectedAnswer(null);
+        setIsAnswerCorrect(null);
       }
+    );
+
+    socket.on("answerSubmitted", ({ selectedAnswer, isCorrect, correctAnswer }) => {
+      console.log("Answer Submitted:", { selectedAnswer, isCorrect, correctAnswer });
+      setSelectedAnswer(selectedAnswer);
+      setIsAnswerCorrect(isCorrect);
+      setIsAnswered(true);
+      setTimerActive(false);
     });
 
-    socket.on('gameOver', ({ winner, finalScores, message }) => {
+    socket.on("gameOver", ({ winner, finalScores, message }) => {
       setQuizFinished(true);
       setGameStarted(false);
       setPlayers(finalScores);
-      setCellOwnership(finalScores[0].userId === winner ? Array(25).fill('P') : Array(25).fill('C')); // Visual feedback
+      setCellOwnership(
+        finalScores[0].userId === winner
+          ? Array(25).fill("P")
+          : Array(25).fill("C")
+      );
       toast.success(message, { autoClose: 5000 });
     });
 
-    socket.on('gameEnded', ({ message }) => {
+    socket.on("gameEnded", ({ message }) => {
       setQuizFinished(true);
       setGameStarted(false);
-      toast.info(message || 'Game ended due to player disconnection', { autoClose: 3000 });
+      toast.info(message || "Game ended due to player disconnection", {
+        autoClose: 3000,
+      });
     });
 
-    socket.on('playerLeft', ({ userId, username }) => {
+    socket.on("playerLeft", ({ userId, username }) => {
       if (userId !== user._id) {
         toast.info(`${username} left. Game ending...`, { autoClose: 3000 });
       }
     });
 
-    socket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
-      toast.error('Connection to server failed. Reconnecting...', { autoClose: 3000 });
+    socket.on("connect_error", (err) => {
+      console.error("Socket connection error:", err.message);
+      toast.error("Connection to server failed. Reconnecting...", {
+        autoClose: 3000,
+      });
     });
 
-    socket.on('reconnect', () => {
-      console.log('Reconnected to server');
+    socket.on("reconnect", () => {
+      console.log("Reconnected to server");
       if (!gameStarted && !quizFinished) {
-        socket.emit('joinRoom', { roomId, userId: user._id, username: user.username });
+        socket.emit("joinRoom", {
+          roomId,
+          userId: user._id,
+          username: user.username,
+        });
       }
     });
 
     return () => {
-      socket.off('gameStarted');
-      socket.off('updatePlayers');
-      socket.off('updateTurn');
-      socket.off('cellClick');
-      socket.off('updateOwnership');
-      socket.off('questionFetched');
-      socket.off('gameOver');
-      socket.off('gameEnded');
-      socket.off('playerLeft');
-      socket.off('connect_error');
-      socket.off('reconnect');
+      socket.off("gameStarted");
+      socket.off("updatePlayers");
+      socket.off("updateTurn");
+      socket.off("cellClick");
+      socket.off("updateOwnership");
+      socket.off("questionFetched");
+      socket.off("answerSubmitted");
+      socket.off("gameOver");
+      socket.off("gameEnded");
+      socket.off("playerLeft");
+      socket.off("connect_error");
+      socket.off("reconnect");
     };
   }, [roomId, user, gameStarted, quizFinished]);
 
   const handleStartNewGame = () => {
     if (!quizFinished) {
-      toast.info('Please wait for the current game to end!', { autoClose: 3000 });
+      toast.info("Please wait for the current game to end!", {
+        autoClose: 3000,
+      });
       return;
     }
     setCellOwnership(Array(25).fill(null));
@@ -181,8 +230,11 @@ const Grid = ({ handleLogout }) => {
     setTimerKey((prevKey) => prevKey + 1);
     setLoading(true);
     setGameStarted(false);
-    socket.emit('restartGame', roomId);
-    toast.success('New game started! Waiting for players...', { position: 'top-right', autoClose: 3000 });
+    socket.emit("restartGame", roomId);
+    toast.success("New game started! Waiting for players...", {
+      position: "top-right",
+      autoClose: 3000,
+    });
   };
 
   const handleApiClick = async () => {
@@ -190,140 +242,212 @@ const Grid = ({ handleLogout }) => {
     setError(null);
     try {
       const response = await fetch(api);
-      if (!response.ok) throw new Error('Failed to fetch question');
+      if (!response.ok) throw new Error("Failed to fetch question");
       const data = await response.json();
       const singleQuestion = data[0];
-      const shuffledAnswers = shuffleArray([singleQuestion.correctAnswer, ...singleQuestion.incorrectAnswers]);
+      const shuffledAnswers = shuffleArray([
+        singleQuestion.correctAnswer,
+        ...singleQuestion.incorrectAnswers,
+      ]);
       setQuizData({ ...singleQuestion, shuffledAnswers });
       setSelectedAnswer(null);
       setIsAnswerCorrect(null);
-      setTimerActive(true);
       setIsAnswered(false);
-      socket.emit('questionFetched', { roomId, question: singleQuestion.question.text, options: shuffledAnswers, correctAnswer: singleQuestion.correctAnswer });
+      const cellColor = colorForCell(currentCell);
+      const timerStart = cellColor === styles.redCell ? 30 : cellColor === styles.blueCell ? 45 : 60;
+      setTimerStart(timerStart);
+      setTimerActive(true);
+      setTimerKey((prevKey) => prevKey + 1);
+      socket.emit("questionFetched", {
+        roomId,
+        question: singleQuestion.question.text,
+        options: shuffledAnswers,
+        correctAnswer: singleQuestion.correctAnswer,
+        timerStart,
+      });
     } catch (err) {
       setError(err);
-      toast.error('Failed to fetch question. Try again.', { autoClose: 3000 });
+      toast.error("Failed to fetch question. Try again.", { autoClose: 3000 });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleTimeout = () => {
+    if (isAnswered || quizFinished || loading || currentTurn !== user._id)
+      return;
+
+    setIsAnswered(true);
+    setIsAnswerCorrect(false);
+    setTimerActive(false);
+
+    const nextTurn = players.find((p) => p.userId !== currentTurn)?.userId;
+
+    socket.emit("submitAnswer", {
+      roomId,
+      cellIndex: currentCell,
+      isCorrect: false,
+      playerId: user._id,
+      nextTurn,
+      selectedAnswer: null,
+    });
+
+    updateCellOwnership(
+      currentCell,
+      currentTurn === players[0].userId ? "C" : "P",
+      false
+    );
+
+    if (usedCells.length + 1 >= 5) checkWinCondition();
+  };
+
   const handleCellClick = (index) => {
-    if (quizFinished || usedCells.includes(index) || loading || currentTurn !== user._id) {
+    if (
+      quizFinished ||
+      usedCells.includes(index) ||
+      loading ||
+      currentTurn !== user._id
+    ) {
       if (currentTurn !== user._id) {
-        toast.info('Wait for your turn!', { autoClose: 2000 });
+        toast.info("Wait for your turn!", { autoClose: 2000 });
       } else if (usedCells.includes(index)) {
-        toast.info('Cell already used!', { autoClose: 2000 });
+        toast.info("Cell already used!", { autoClose: 2000 });
       } else {
-        toast.info('Wait for the game to start!', { autoClose: 2000 });
+        toast.info("Wait for the game to start!", { autoClose: 2000 });
       }
       return;
     }
     setCurrentCell(index);
     const newUsedCells = [...usedCells, index];
     setUsedCells(newUsedCells);
-    const cellColor = colorForCell(index);
-    if (cellColor === styles.redCell) setTimerStart(30);
-    else if (cellColor === styles.blueCell) setTimerStart(45);
-    else setTimerStart(60);
-    setTimerKey((prevKey) => prevKey + 1);
-    socket.emit('cellClick', { roomId, index });
+    socket.emit("cellClick", { roomId, index });
     handleApiClick();
   };
 
   const handleAnswerClick = (answer) => {
-    if (isAnswered || quizFinished || loading || currentTurn !== user._id) return;
+    if (isAnswered || quizFinished || loading || currentTurn !== user._id)
+      return;
 
     const correct = answer === quizData.correctAnswer;
+    console.log("Selected Answer:", answer, "Is Correct:", correct);
     setSelectedAnswer(answer);
     setIsAnswered(true);
     setTimerActive(false);
     setIsAnswerCorrect(correct);
 
-    // Show correct/incorrect result for 3 seconds before proceeding
     setTimeout(() => {
-      const nextTurn = players.find(p => p.userId !== currentTurn)?.userId;
+      const nextTurn = players.find((p) => p.userId !== currentTurn)?.userId;
 
-      socket.emit('submitAnswer', {
+      socket.emit("submitAnswer", {
         roomId,
         cellIndex: currentCell,
         isCorrect: correct,
         playerId: user._id,
-        nextTurn
+        nextTurn,
+        selectedAnswer: answer,
       });
 
       updateCellOwnership(
         currentCell,
-        correct ? (currentTurn === players[0].userId ? 'P' : 'C') : (currentTurn === players[0].userId ? 'C' : 'P'),
+        correct
+          ? currentTurn === players[0].userId
+            ? "P"
+            : "C"
+          : currentTurn === players[0].userId
+          ? "C"
+          : "P",
         correct
       );
 
-      if (usedCells.length + 1 >= 5) checkWinCondition(); // Check win after a delay too
-    }, 3000); // 3 second delay
+      if (usedCells.length + 1 >= 5) checkWinCondition();
+    }, 3000);
   };
 
   const updateCellOwnership = (index, owner, isCorrect) => {
     const newOwnership = [...cellOwnership];
     newOwnership[index] = owner;
     setCellOwnership(newOwnership);
-    setPlayerScore(scoreReader(newOwnership, 'P'));
-    setComputerScore(scoreReader(newOwnership, 'C'));
+    setPlayerScore(scoreReader(newOwnership, "P"));
+    setComputerScore(scoreReader(newOwnership, "C"));
     if (isCorrect) {
-      const currentPlayer = players.find(p => p.userId === currentTurn);
+      const currentPlayer = players.find((p) => p.userId === currentTurn);
       currentPlayer.score += 1;
     } else {
-      const opponent = players.find(p => p.userId !== currentTurn);
-      opponent.score += 1;
+      const opponent = players.find((p) => p.userId !== currentTurn);
+      if (opponent) opponent.score += 1;
     }
-    socket.emit('updateOwnership', { roomId, cellIndex: index, owner });
-    socket.emit('updatePlayers', { players, currentTurn, cellOwnership: newOwnership });
+    socket.emit("updateOwnership", { roomId, cellIndex: index, owner });
+    socket.emit("updatePlayers", {
+      players,
+      currentTurn,
+      cellOwnership: newOwnership,
+    });
   };
 
   const checkWinCondition = () => {
     const winPatterns = [
-      [0, 1, 2, 3, 4], [5, 6, 7, 8, 9], [10, 11, 12, 13, 14],
-      [15, 16, 17, 18, 19], [20, 21, 22, 23, 24],
-      [0, 5, 10, 15, 20], [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24],
-      [0, 6, 12, 18, 24], [4, 8, 12, 16, 20],
+      [0, 1, 2, 3, 4],
+      [5, 6, 7, 8, 9],
+      [10, 11, 12, 13, 14],
+      [15, 16, 17, 18, 19],
+      [20, 21, 22, 23, 24],
+      [0, 5, 10, 15, 20],
+      [1, 6, 11, 16, 21],
+      [2, 7, 12, 17, 22],
+      [3, 8, 13, 18, 23],
+      [4, 9, 14, 19, 24],
+      [0, 6, 12, 18, 24],
+      [4, 8, 12, 16, 20],
     ];
     for (const pattern of winPatterns) {
-      if (pattern.every((i) => cellOwnership[i] === 'P')) {
+      if (pattern.every((i) => cellOwnership[i] === "P")) {
         setQuizFinished(true);
-        socket.emit('gameOver', { roomId, winner: players[0].userId });
+        socket.emit("gameOver", { roomId, winner: players[0].userId });
         return;
       }
-      if (pattern.every((i) => cellOwnership[i] === 'C')) {
+      if (pattern.every((i) => cellOwnership[i] === "C")) {
         setQuizFinished(true);
-        socket.emit('gameOver', { roomId, winner: players[1].userId });
+        socket.emit("gameOver", { roomId, winner: players[1].userId });
         return;
       }
     }
     if (usedCells.length === 25) {
       setQuizFinished(true);
-      const winner = playerScore > computerScore ? players[0].userId : players[1].userId;
-      socket.emit('gameOver', { roomId, winner });
+      const winner =
+        playerScore > computerScore ? players[0].userId : players[1].userId;
+      socket.emit("gameOver", { roomId, winner });
     }
   };
 
-  const colorForCell = (index) => {
-    const cellOwner = cellOwnership[index];
-    if (cellOwner === 'P') return styles.playerCell;
-    if (cellOwner === 'C') return styles.computerCell;
-    const cellNumber = index + 1;
-    if (cellNumber === 13) return styles.redCell;
-    if ([1, 5, 7, 9, 17, 19, 21, 25].includes(cellNumber)) return styles.blueCell;
-    return styles.orangeCell;
-  };
+  const colorForCell = useMemo(
+    () => (index) => {
+      const cellOwner = cellOwnership[index];
+      if (cellOwner === "P") return styles.playerCell;
+      if (cellOwner === "C") return styles.computerCell;
+      const cellNumber = index + 1;
+      if (cellNumber === 13) return styles.redCell;
+      if ([1, 5, 7, 9, 17, 19, 21, 25].includes(cellNumber))
+        return styles.blueCell;
+      return styles.orangeCell;
+    },
+    [cellOwnership]
+  );
 
-  const currentPlayer = players.find(p => p.userId === currentTurn);
+  const currentPlayer = players.find((p) => p.userId === currentTurn);
 
   return (
     <GridContainer>
       <div className={styles.buttonContainer}>
-        <LogoutButton onClick={handleLogout} className={`${styles.button} ${styles.logoutButton}`}>
+        <LogoutButton
+          onClick={handleLogout}
+          className={`${styles.button} ${styles.logoutButton}`}
+        >
           Logout
         </LogoutButton>
-        <NewGameButton onClick={handleStartNewGame} className={`${styles.button} ${styles.newGameButton}`}>
+        <NewGameButton
+          onClick={handleStartNewGame}
+          className={`${styles.button} ${styles.newGameButton}`}
+        >
           New Game
         </NewGameButton>
       </div>
@@ -335,49 +459,69 @@ const Grid = ({ handleLogout }) => {
           </PlayerCard>
         ))}
         <TurnIndicator>
-          Current Turn: {currentPlayer ? currentPlayer.username : 'Waiting...'}
+          Current Turn: {currentPlayer ? currentPlayer.username : "Waiting..."}
         </TurnIndicator>
       </PlayerInfo>
-      <Timer startTime={timerStart} isActive={timerActive} key={timerKey} />
+      <Timer
+        startTime={timerStart}
+        isActive={timerActive}
+        key={timerKey}
+        onTimeout={handleTimeout}
+      />
       {loading && (
         <LoaderContainer>
           <Loader />
           <p>Waiting for the second player to join...</p>
         </LoaderContainer>
       )}
-      {error && <p style={{ textAlign: 'center', color: 'red' }}>Error: {error.message}</p>}
-      {!loading && !error && quizData && currentCell !== null && !quizFinished && (
-        <QuestionContainer>
-          <QuestionText>{quizData.question.text}</QuestionText>
-          <OptionsList className={styles.optionsContainer}>
-            {quizData.shuffledAnswers.map((answer, index) => (
-              <OptionItem
-                key={index}
-                onClick={() => handleAnswerClick(answer)}
-                className={`${styles.optionBox} ${
-                  selectedAnswer && answer === quizData.correctAnswer
-                    ? styles.correctOption
-                    : selectedAnswer === answer
-                    ? styles.incorrectOption
-                    : ''
-                } ${isAnswered || currentTurn !== user._id ? styles.disabledOption : ''}`}
-                style={{ pointerEvents: (isAnswered || currentTurn !== user._id) ? 'none' : 'auto' }}
-              >
-                {answer}
-              </OptionItem>
-            ))}
-          </OptionsList>
-          {isAnswerCorrect === false && (
-            <CorrectAnswerMsg className={styles.correctAnswerMsg}>
-              The correct answer is: {quizData.correctAnswer}
-            </CorrectAnswerMsg>
-          )}
-        </QuestionContainer>
+      {error && (
+        <p style={{ textAlign: "center", color: "red" }}>
+          Error: {error.message}
+        </p>
       )}
+      {!loading &&
+        !error &&
+        quizData &&
+        currentCell !== null &&
+        !quizFinished && (
+          <QuestionContainer>
+            <QuestionText>{quizData.question.text}</QuestionText>
+            <OptionsList className={styles.optionsContainer}>
+              {quizData.shuffledAnswers.map((answer, index) => (
+                <OptionItem
+                  key={index}
+                  onClick={() => handleAnswerClick(answer)}
+                  className={`${styles.optionBox} ${
+                    selectedAnswer && answer === quizData.correctAnswer
+                      ? styles.correctOption
+                      : selectedAnswer === answer
+                      ? styles.incorrectOption
+                      : ""
+                  } ${
+                    isAnswered || currentTurn !== user._id
+                      ? styles.disabledOption
+                      : ""
+                  }`}
+                  style={{
+                    pointerEvents:
+                      isAnswered || currentTurn !== user._id ? "none" : "auto",
+                  }}
+                >
+                  {answer}
+                </OptionItem>
+              ))}
+            </OptionsList>
+            {isAnswerCorrect === false && quizData && (
+              <CorrectAnswerMsg className={styles.correctAnswerMsg}>
+                The correct answer is: {quizData.correctAnswer}
+              </CorrectAnswerMsg>
+            )}
+          </QuestionContainer>
+        )}
       {quizFinished && (
         <EndScreen className={styles.endScreen}>
           <h2>Game Over!</h2>
-          <p>{players.map(p => `${p.username}: ${p.score}`).join(', ')}</p>
+          <p>{players.map((p) => `${p.username}: ${p.score}`).join(", ")}</p>
         </EndScreen>
       )}
       <div className={styles.gridContainer}>
@@ -403,9 +547,15 @@ const GridContainer = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #f5f5f5;
-  gap: 1rem;
-  font-family: 'Arial', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  gap: 1.5rem;
+  font-family: 'Poppins', sans-serif;
+  color: #ffffff;
+  overflow-y: auto;
+  padding: 20px;
+  @media (max-width: 600px) {
+    padding: 10px;
+  }
 `;
 
 const PlayerInfo = styled.div`
@@ -413,108 +563,134 @@ const PlayerInfo = styled.div`
   gap: 1.5rem;
   justify-content: center;
   width: 100%;
-  padding: 0.75rem;
-  background-color: #e0e0e0;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  padding: 1rem;
+  background: rgba(26, 26, 46, 0.8);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 `;
 
 const PlayerCard = styled.div`
   text-align: center;
-  background: #fff;
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+  &:hover {
+    transform: translateY(-4px);
+  }
 `;
 
 const PlayerName = styled.h3`
-  font-size: 1rem;
-  color: #333;
+  font-size: 1.1rem;
+  color: #ffffff;
   margin: 0;
 `;
 
 const PlayerScore = styled.p`
-  font-size: 0.9rem;
-  color: #666;
-  margin: 0.25rem 0;
+  font-size: 0.95rem;
+  color: #d1d1d1;
+  margin: 0.5rem 0 0;
 `;
 
 const TurnIndicator = styled.div`
-  font-size: 1rem;
-  color: #0F72EA;
-  font-weight: bold;
-  margin-top: 0.5rem;
+  font-size: 1.1rem;
+  color: #00ffcc;
+  font-weight: 600;
+  margin-top: 0.75rem;
 `;
 
 const LogoutButton = styled.button`
-  background-color: #ff4b5c;
-  color: white;
-  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ff4b5c, #cc3b47);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
   border: none;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 0.25rem;
+  border-radius: 8px;
   font-size: 0.9rem;
   text-transform: uppercase;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   &:hover {
-    background-color: #ff2e47;
+    background: linear-gradient(135deg, #ff2e47, #b02e3a);
+    transform: translateY(-2px);
+    opacity: 0.9;
+  }
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 75, 92, 0.4);
   }
 `;
 
 const NewGameButton = styled.button`
-  background-color: #4CAF50;
-  color: white;
-  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #00ffcc, #00cc99);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
   border: none;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 0.25rem;
+  border-radius: 8px;
   font-size: 0.9rem;
   text-transform: uppercase;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   &:hover {
-    background-color: #45a049;
+    background: linear-gradient(135deg, #00e6b3, #00b380);
+    transform: translateY(-2px);
+    opacity: 0.9;
+  }
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.4);
   }
 `;
 
 const LoaderContainer = styled.div`
   text-align: center;
-  color: #333;
+  color: #ffffff;
   p {
-    font-size: 1rem;
-    margin-top: 0.75rem;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+    color: #d1d1d1;
   }
 `;
 
 const Loader = styled.div`
-  border: 6px solid #f3f3f3;
-  border-top: 6px solid #0F72EA;
+  border: 8px solid rgba(255, 255, 255, 0.2);
+  border-top: 8px solid #00ffcc;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   animation: spin 1s linear infinite;
   margin: 0 auto;
 
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 `;
 
 const QuestionContainer = styled.div`
   text-align: center;
-  max-width: 600px;
+  max-width: 700px;
+  width: 90%;
   margin: 0 auto;
-  background: #fff;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.3s ease-in;
+  background: rgba(26, 26, 46, 0.8);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.5s ease-in;
 `;
 
 const QuestionText = styled.h2`
-  font-size: 1.25rem;
-  color: #333;
-  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  line-height: 1.4;
 `;
 
 const OptionsList = styled.ul`
@@ -522,41 +698,48 @@ const OptionsList = styled.ul`
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 12px;
 `;
 
 const OptionItem = styled.li`
-  padding: 0.5rem;
-  background-color: #f0f0f0;
-  border-radius: 0.25rem;
+  padding: 12px;
+  color: #080808ff;
+  font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   &:hover {
-    background-color: #e0e0e0;
+    transform: translateX(4px);
+    opacity: 0.9;
+  }
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.4);
   }
 `;
 
 const CorrectAnswerMsg = styled.p`
-  color: #27ae60;
-  font-weight: bold;
-  font-size: 0.9rem;
-  margin-top: 0.75rem;
+  color: #00ffcc;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 16px;
+  animation: fadeIn 0.5s ease-in;
 `;
 
 const EndScreen = styled.div`
   text-align: center;
-  color: #333;
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.3s ease-in;
+  color: #ffffff;
+  background: rgba(26, 26, 46, 0.8);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.5s ease-in;
   h2 {
-    font-size: 1.75rem;
-    margin-bottom: 0.5rem;
+    font-size: 2rem;
+    margin-bottom: 1rem;
   }
   p {
     font-size: 1.25rem;
+    color: #d1d1d1;
   }
 `;
 
