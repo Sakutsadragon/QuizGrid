@@ -135,7 +135,7 @@ io.on("connection", (socket) => {
       if (!room) return;
       room.timerStart = timerStart;
       room.quizData = { question, options, correctAnswer };
-      console.log("Stored quizData:", room.quizData);
+      // console.log("Stored quizData:", room.quizData);
       io.to(roomId).emit("questionFetched", {
         question,
         options,
@@ -178,11 +178,11 @@ io.on("connection", (socket) => {
         cellOwnership: room.cellOwnership,
       });
 
-      console.log("Broadcasting answerSubmitted:", {
-        selectedAnswer,
-        isCorrect,
-        correctAnswer: room.quizData?.correctAnswer,
-      });
+      // console.log("Broadcasting answerSubmitted:", {
+      //   selectedAnswer,
+      //   isCorrect,
+      //   correctAnswer: room.quizData?.correctAnswer,
+      // });
       io.to(roomId).emit("answerSubmitted", {
         selectedAnswer,
         isCorrect,
