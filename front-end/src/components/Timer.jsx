@@ -14,20 +14,23 @@ const TimerContainer = styled.div`
   margin: 1rem auto;
 `;
 
-const Timer = ({ startTime, isActive, timerKey }) => {
+const Timer = ({ startTime, isActive, timerKey, onTimeout }) => {
   const [timeLeft, setTimeLeft] = useState(startTime);
 
-  // Reset timer when startTime or timerKey changes
   useEffect(() => {
-    setTimeLeft(startTime || 0); // Default to 0 if startTime is null/undefined
+    setTimeLeft(startTime || 0);
   }, [startTime, timerKey]);
 
-  // Timer countdown logic
   useEffect(() => {
-    if (timeLeft === 0) {
-      toast.warning("Time's up!", { position: 'top-right', autoClose: 3000 });
-      return;
+    if (isActive && timeLeft === 0) {
+      if (typeof onTimeout === 'function') {
+        onTimeout();
+      }
     }
+  }, [timeLeft, isActive, onTimeout]);
+
+  useEffect(() => {
+    if (timeLeft === 0) return;
 
     let intervalId;
     if (isActive && timeLeft > 0) {
@@ -36,7 +39,7 @@ const Timer = ({ startTime, isActive, timerKey }) => {
       }, 1000);
     }
 
-    return () => clearInterval(intervalId); // Cleanup on unmount or dependency change
+    return () => clearInterval(intervalId);
   }, [timeLeft, isActive]);
 
   return (
