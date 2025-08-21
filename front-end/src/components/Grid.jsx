@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import Logo from '../assets/logoo.png';
 import io from "socket.io-client";
 import styled from "styled-components";
 import Timer from "./Timer";
@@ -437,227 +438,387 @@ const Grid = ({ handleLogout }) => {
 
   return (
     <GridContainer>
-      <div className={styles.buttonContainer}>
-        <LogoutButton
-          onClick={handleLogout}
-          className={`${styles.button} ${styles.logoutButton}`}
-        >
-          Logout
-        </LogoutButton>
-        <NewGameButton
-          onClick={handleStartNewGame}
-          className={`${styles.button} ${styles.newGameButton}`}
-        >
-          New Game
-        </NewGameButton>
-      </div>
-      <PlayerInfo>
-        {players.map((player) => (
-          <PlayerCard key={player.userId}>
-            <PlayerName>{player.username}</PlayerName>
-            <PlayerScore>Score: {player.score}</PlayerScore>
-          </PlayerCard>
-        ))}
-        <TurnIndicator>
-          Current Turn: {currentPlayer ? currentPlayer.username : "Waiting..."}
-        </TurnIndicator>
-      </PlayerInfo>
-      <Timer
-        startTime={timerStart}
-        isActive={timerActive}
-        key={timerKey}
-        onTimeout={handleTimeout}
-      />
-      {loading && (
-        <LoaderContainer>
-          <Loader />
-          <p>Waiting for the second player to join...</p>
-        </LoaderContainer>
-      )}
-      {error && (
-        <p style={{ textAlign: "center", color: "red" }}>
-          Error: {error.message}
-        </p>
-      )}
-      {!loading &&
-        !error &&
-        quizData &&
-        currentCell !== null &&
-        !quizFinished && (
-          <QuestionContainer>
-            <QuestionText>{quizData.question.text}</QuestionText>
-            <OptionsList className={styles.optionsContainer}>
-              {quizData.shuffledAnswers.map((answer, index) => (
-                <OptionItem
-                  key={index}
-                  onClick={() => handleAnswerClick(answer)}
-                  className={`${styles.optionBox} ${
-                    selectedAnswer && answer === quizData.correctAnswer
-                      ? styles.correctOption
-                      : selectedAnswer === answer
-                      ? styles.incorrectOption
-                      : ""
-                  } ${
-                    isAnswered || currentTurn !== user._id
-                      ? styles.disabledOption
-                      : ""
-                  }`}
-                  style={{
-                    pointerEvents:
-                      isAnswered || currentTurn !== user._id ? "none" : "auto",
-                  }}
-                >
-                  {answer}
-                </OptionItem>
-              ))}
-            </OptionsList>
-            {isAnswerCorrect === false && quizData && (
-              <CorrectAnswerMsg className={styles.correctAnswerMsg}>
-                The correct answer is: {quizData.correctAnswer}
-              </CorrectAnswerMsg>
-            )}
-          </QuestionContainer>
+      <Header>
+        <HeaderContent>
+          <LogoSection>
+            <LogoImage src={Logo} alt="QuizGrid Logo" />
+          </LogoSection>
+          <UserSection>
+            <UserInfo>
+              <UserAvatar>👤</UserAvatar>
+              <UserDetails>
+                <UserName>{user?.username}</UserName>
+                <UserStatus>Online</UserStatus>
+              </UserDetails>
+            </UserInfo>
+            <LogoutButton onClick={handleLogout}>
+              <LogoutIcon>🚪</LogoutIcon>
+              Logout
+            </LogoutButton>
+            <NewGameButton onClick={handleStartNewGame}>
+              <ButtonIcon>🔄</ButtonIcon>
+              New Game
+            </NewGameButton>
+          </UserSection>
+        </HeaderContent>
+      </Header>
+
+      <MainContent>
+        <Timer
+          startTime={timerStart}
+          isActive={timerActive}
+          key={timerKey}
+          onTimeout={handleTimeout}
+        />
+        {loading && (
+          <LoaderContainer>
+            <Loader />
+            <p>Waiting for the second player to join...</p>
+          </LoaderContainer>
         )}
-      {quizFinished && (
-        <EndScreen className={styles.endScreen}>
-          <h2>Game Over!</h2>
-          <p>{players.map((p) => `${p.username}: ${p.score}`).join(", ")}</p>
-        </EndScreen>
-      )}
-      <div className={styles.gridContainer}>
-        {Array.from({ length: 25 }, (_, index) => (
-          <div
-            className={`${styles.cell} ${colorForCell(index)}`}
-            key={index}
-            onClick={() => handleCellClick(index)}
-          >
-            {cellOwnership[index] || index + 1}
-          </div>
-        ))}
-      </div>
-      <ToastContainer />
+        {error && (
+          <p style={{ textAlign: "center", color: "red" }}>
+            Error: {error?.message || "An unexpected error occurred"}
+          </p>
+        )}
+        {!loading &&
+          !error &&
+          quizData &&
+          currentCell !== null &&
+          !quizFinished && (
+            <QuestionContainer>
+              <QuestionText>{quizData.question.text}</QuestionText>
+              <OptionsList className={styles.optionsContainer}>
+                {quizData.shuffledAnswers.map((answer, index) => (
+                  <OptionItem
+                    key={`${answer}-${index}`}
+                    onClick={() => handleAnswerClick(answer)}
+                    className={`${styles.optionBox} ${
+                      isAnswered
+                        ? answer === quizData.correctAnswer
+                          ? styles.correctOption
+                          : selectedAnswer === answer
+                          ? styles.incorrectOption
+                          : ""
+                        : ""
+                    } ${
+                      isAnswered || currentTurn !== user._id
+                        ? styles.disabledOption
+                        : ""
+                    }`}
+                    style={{
+                      pointerEvents:
+                        isAnswered || currentTurn !== user._id ? "none" : "auto",
+                    }}
+                  >
+                    {answer}
+                  </OptionItem>
+                ))}
+              </OptionsList>
+              {isAnswerCorrect === false && quizData && (
+                <CorrectAnswerMsg className={styles.correctAnswerMsg}>
+                  The correct answer is: {quizData.correctAnswer}
+                </CorrectAnswerMsg>
+              )}
+            </QuestionContainer>
+          )}
+        {quizFinished && (
+          <EndScreen className={styles.endScreen}>
+            <h2>Game Over!</h2>
+            <p>{players.map((p) => `${p.username}: ${p.score}`).join(", ")}</p>
+          </EndScreen>
+        )}
+        {(!quizData || quizFinished) && !loading && !error && (
+          <GridWrapper>
+            <div className={styles.gridContainer}>
+              {Array.from({ length: 25 }, (_, index) => (
+                <div
+                  className={`${styles.cell} ${colorForCell(index)}`}
+                  key={index}
+                  onClick={() => handleCellClick(index)}
+                >
+                  {cellOwnership[index] || index + 1}
+                </div>
+              ))}
+            </div>
+          </GridWrapper>
+        )}
+        <Footer>
+          <PlayerName>{players[0]?.username || "Player 1"}</PlayerName>
+          <ScoreDisplay>
+            <Score>{playerScore}</Score>
+            {currentPlayer?.userId === players[0]?.userId && <TurnLine />}
+            <Score>{computerScore}</Score>
+            {currentPlayer?.userId === players[1]?.userId && <TurnLine />}
+          </ScoreDisplay>
+          <PlayerName>{players[1]?.username || "Player 2"}</PlayerName>
+        </Footer>
+        <ToastContainer />
+      </MainContent>
     </GridContainer>
   );
 };
 
 const GridContainer = styled.div`
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  gap: 1.5rem;
-  font-family: 'Poppins', sans-serif;
-  color: #ffffff;
-  overflow-y: auto;
-  padding: 20px;
-  @media (max-width: 600px) {
-    padding: 10px;
-  }
 `;
 
-const PlayerInfo = styled.div`
+const Header = styled.header`
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 2rem;
+`;
+
+const HeaderContent = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem;
   display: flex;
-  gap: 1.5rem;
-  justify-content: center;
-  width: 100%;
-  max-width: 800px;
-  padding: 1rem;
-  background: rgba(26, 26, 46, 0.8);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-`;
+  justify-content: space-between;
+  align-items: center;
 
-const PlayerCard = styled.div`
-  text-align: center;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s ease;
-  &:hover {
-    transform: translateY(-4px);
+  @media (max-width: 768px) {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+    gap: 0.5rem;
   }
 `;
 
-const PlayerName = styled.h3`
-  font-size: 1.1rem;
-  color: #ffffff;
-  margin: 0;
+const LogoSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 `;
 
-const PlayerScore = styled.p`
-  font-size: 0.95rem;
-  color: #d1d1d1;
-  margin: 0.5rem 0 0;
+const LogoImage = styled.img`
+  height: 4rem;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 480px) {
+    height: 3rem;
+  }
 `;
 
-const TurnIndicator = styled.div`
-  font-size: 1.1rem;
-  color: #00ffcc;
+const UserSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.8rem;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
+`;
+
+const UserInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.6rem;
+    gap: 0.4rem;
+  }
+`;
+
+const UserAvatar = styled.div`
+  font-size: 1.2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
+`;
+
+const UserDetails = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+`;
+
+const UserName = styled.span`
   font-weight: 600;
-  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #ffffff;
+
+  @media (max-width: 480px) {
+    font-size: 0.8rem;
+  }
+`;
+
+const UserStatus = styled.span`
+  font-size: 0.7rem;
+  color: #26a69a;
+  font-weight: 500;
+
+  @media (max-width: 480px) {
+    font-size: 0.6rem;
+  }
 `;
 
 const LogoutButton = styled.button`
-  background: linear-gradient(135deg, #ff4b5c, #cc3b47);
-  color: #ffffff;
-  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
   border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
   font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
   font-size: 0.9rem;
-  text-transform: uppercase;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+
   &:hover {
-    background: linear-gradient(135deg, #ff2e47, #b02e3a);
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
-    opacity: 0.9;
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
   }
+
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 75, 92, 0.4);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.7rem;
+  }
+`;
+
+const LogoutIcon = styled.span`
+  font-size: 1rem;
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
   }
 `;
 
 const NewGameButton = styled.button`
-  background: linear-gradient(135deg, #00ffcc, #00cc99);
-  color: #ffffff;
-  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #26a69a, #00897b);
+  color: white;
   border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
   font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
   font-size: 0.9rem;
-  text-transform: uppercase;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 4px 12px rgba(38, 166, 154, 0.3);
+
   &:hover {
-    background: linear-gradient(135deg, #00e6b3, #00b380);
+    background: linear-gradient(135deg, #00897b, #00695c);
     transform: translateY(-2px);
-    opacity: 0.9;
+    box-shadow: 0 6px 16px rgba(38, 166, 154, 0.4);
   }
+
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.4);
+    box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.4);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.7rem;
+  }
+`;
+
+const ButtonIcon = styled.span`
+  font-size: 1rem;
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
+`;
+
+const MainContent = styled.main`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  text-align: center;
+  flex-grow: 1;
+
+  @media (max-width: 768px) {
+    padding: 2rem 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1.5rem 0.5rem;
+  }
+`;
+
+const GridWrapper = styled.div`
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
 `;
 
 const LoaderContainer = styled.div`
   text-align: center;
   color: #ffffff;
+  padding: 2rem;
+  background: rgba(74, 44, 110, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+
   p {
     font-size: 1.1rem;
     margin-top: 1rem;
-    color: #d1d1d1;
+    color: #d4a017;
+
+    @media (max-width: 480px) {
+      font-size: 1rem;
+    }
   }
 `;
 
 const Loader = styled.div`
   border: 8px solid rgba(255, 255, 255, 0.2);
-  border-top: 8px solid #00ffcc;
+  border-top: 8px solid #26a69a;
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -665,12 +826,13 @@ const Loader = styled.div`
   margin: 0 auto;
 
   @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
   }
 `;
 
@@ -679,18 +841,36 @@ const QuestionContainer = styled.div`
   max-width: 700px;
   width: 90%;
   margin: 0 auto;
-  background: rgba(26, 26, 46, 0.8);
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  background: rgba(74, 44, 110, 0.1);
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.5s ease-in;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const QuestionText = styled.h2`
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   color: #ffffff;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   line-height: 1.4;
+  font-weight: 700;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const OptionsList = styled.ul`
@@ -698,48 +878,146 @@ const OptionsList = styled.ul`
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
+
+  @media (max-width: 480px) {
+    gap: 0.75rem;
+  }
 `;
 
 const OptionItem = styled.li`
-  padding: 12px;
-  color: #080808ff;
-  font-size: 1rem;
+  padding: 1rem;
+  color: #080808;
+  font-size: 1.1rem;
   cursor: pointer;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
   &:hover {
-    transform: translateX(4px);
-    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
   }
+
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.4);
+    box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.4);
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+    padding: 0.75rem;
   }
 `;
 
 const CorrectAnswerMsg = styled.p`
-  color: #00ffcc;
+  color: #d4a017;
   font-weight: 600;
-  font-size: 1rem;
-  margin-top: 16px;
+  font-size: 1.2rem;
+  margin-top: 1.5rem;
   animation: fadeIn 0.5s ease-in;
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+    margin-top: 1rem;
+  }
 `;
 
 const EndScreen = styled.div`
   text-align: center;
   color: #ffffff;
-  background: rgba(26, 26, 46, 0.8);
-  padding: 2rem;
+  background: rgba(74, 44, 110, 0.1);
+  padding: 2.5rem;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.5s ease-in;
+
+  h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 800;
+    color: #26a69a;
+
+    @media (max-width: 768px) {
+      font-size: 2rem;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 1.5rem;
+    }
+  }
+
+  p {
+    font-size: 1.3rem;
+    color: #d4a017;
+
+    @media (max-width: 768px) {
+      font-size: 1.1rem;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 1rem;
+    }
+  }
+`;
+
+const Footer = styled.footer`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 800px;
+  margin: 2rem auto 1rem;
+  padding: 1rem;
+  background: rgba(74, 44, 110, 0.1);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  animation: fadeIn 0.5s ease-in;
-  h2 {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 1rem;
   }
-  p {
-    font-size: 1.25rem;
-    color: #d1d1d1;
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+  }
+`;
+
+const PlayerName = styled.div`
+  font-size: 1.2rem;
+  color: #ffffff;
+  font-weight: 600;
+  position: relative;
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
+`;
+
+const TurnLine = styled.div`
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  width: 20%;
+  background: #00e676;
+`;
+
+const ScoreDisplay = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+`;
+
+const Score = styled.span`
+  font-size: 1.5rem;
+  color: #d4a017;
+  font-weight: 700;
+
+  @media (max-width: 480px) {
+    font-size: 1.2rem;
   }
 `;
 
