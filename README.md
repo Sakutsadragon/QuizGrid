@@ -1,8 +1,8 @@
 # QuizGrid
-QuizGrid is an engaging single-player trivia game where you compete against the computer to claim control of a 5x5 grid. Answer questions correctly to mark your spot on the grid. The player or computer with the highest score or a winning pattern wins the game!
+QuizGrid is an engaging realtime multi-player trivia game where you compete against the computer to claim control of a 5x5 grid. Answer questions correctly to mark your spot on the grid. The player or computer with the highest score or a winning pattern wins the game!
 
 # Features
-Single-Player Mode: Compete against the computer.
+Multi-Player Mode: Compete against the other users.
 
 Dynamic Trivia Questions: Questions are fetched in real-time from an external trivia API.
 
