@@ -128,29 +128,9 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("cellClick", { index, currentTurn: room.currentTurn });
   });
 
-  socket.on(
-    "questionFetched",
-    ({ roomId, question, options, correctAnswer, timerStart }) => {
-      const room = rooms[roomId];
-      if (!room) return;
-      room.timerStart = timerStart;
-      room.quizData = { question, options, correctAnswer };
-      console.log("Stored quizData:", room.quizData);
-      io.to(roomId).emit("questionFetched", {
-        question,
-        options,
-        correctAnswer,
-        currentTurn: room.currentTurn,
-        timerStart,
-      });
-    }
-  );
-
-  socket.on(
-    "submitAnswer",
-    ({ roomId, cellIndex, isCorrect, playerId, nextTurn, selectedAnswer }) => {
-      const room = rooms[roomId];
-      if (!room || !room.gameActive) return;
+  socket.on('submitAnswer', ({ roomId, cellIndex, isCorrect, playerId, nextTurn }) => {
+    const room = rooms[roomId];
+    if (!room || !room.gameActive) return;
 
       const currentPlayer = room.players.get(playerId);
       if (!currentPlayer || currentPlayer.socketId !== socket.id) return;
@@ -178,22 +158,14 @@ io.on("connection", (socket) => {
         cellOwnership: room.cellOwnership,
       });
 
-      console.log("Broadcasting answerSubmitted:", {
-        selectedAnswer,
-        isCorrect,
-        correctAnswer: room.quizData?.correctAnswer,
-      });
-      io.to(roomId).emit("answerSubmitted", {
-        selectedAnswer,
-        isCorrect,
-        correctAnswer: room.quizData?.correctAnswer,
-      });
+    room.currentTurn = nextTurn;
+    io.to(roomId).emit('updateTurn', { currentTurn: nextTurn });
+    checkWinCondition(room, roomId);
+  });
 
-      room.currentTurn = nextTurn;
-      io.to(roomId).emit("updateTurn", { currentTurn: nextTurn });
-      checkWinCondition(room, roomId);
-    }
-  );
+  socket.on('questionFetched', ({ roomId, question, options, correctAnswer }) => {
+    io.to(roomId).emit('questionFetched', { question, options, currentTurn: rooms[roomId]?.currentTurn, correctAnswer });
+  });
 
   const checkWinCondition = (room, roomId) => {
     const players = Array.from(room.players.entries());
